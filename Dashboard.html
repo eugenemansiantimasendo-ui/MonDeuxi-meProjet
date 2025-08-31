@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Immobilier Ultime</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .owner-card img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+    .form-inline {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body class="hold-transition sidebar-mini layout-fixed">
+<div class="wrapper">
+
+  <!-- Navbar -->
+  <nav class="main-header navbar navbar-expand navbar-white navbar-light d-flex justify-content-between">
+    <span class="navbar-brand">🏠 Dashboard Immobilier Ultime</span>
+    <button class="btn btn-danger btn-sm" onclick="resetData()">🧹 Réinitialiser les données</button>
+  </nav>
+
+  <!-- Content -->
+  <div class="content-wrapper p-3">
+
+    <!-- Stats -->
+    <div class="row mb-3" id="statsRow"></div>
+
+    <!-- Liste des Propriétaires -->
+    <div class="card mb-4 p-3">
+      <h5>👥 Liste des propriétaires</h5>
+      <div class="row" id="ownersList"></div>
+    </div>
+
+    <!-- Interactions -->
+    <div class="card mb-4 p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap form-inline">
+        <h5>📋 Interactions clients</h5>
+        <div class="d-flex gap-2 align-items-center">
+          <select class="form-control" id="filterType" onchange="renderInteractions()">
+            <option value="all">Tous</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="appel">Appel</option>
+            <option value="like">J’aime</option>
+          </select>
+          <input type="date" class="form-control" id="filterDate" onchange="renderInteractions()">
+          <button class="btn btn-success" onclick="exportCSV()">📁 Export CSV</button>
+        </div>
+      </div>
+      <table class="table table-bordered" id="tableInteractions">
+        <thead>
+          <tr><th>ID</th><th>Annonce</th><th>Type</th><th>Propriétaire</th><th>Date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="mt-2" id="paginationControls"></div>
+    </div>
+
+    <!-- Graphique -->
+    <div class="card p-3">
+      <h5>📊 Graphique des interactions</h5>
+      <canvas id="chartInteractions" height="100"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+
+<script>
+  let annonces = JSON.parse(localStorage.getItem("annonces")) || [];
+  let interactions = JSON.parse(localStorage.getItem("interactions")) || [];
+  let chartInstance = null;
+
+  function renderStats(){
+    const nbAnnonces = annonces.length;
+    const nbProprietaires = [...new Set(annonces.map(a=>a.nomProprietaire))].length;
+    const nbWhatsApp = interactions.filter(i=>i.type==="whatsapp").length;
+    const nbAppels = interactions.filter(i=>i.type==="appel").length;
+    const nbLikes = interactions.filter(i=>i.type==="like").length;
+
+    document.getElementById("statsRow").innerHTML = `
+      <div class="col-lg-3 col-6"><div class="small-box bg-info"><div class="inner"><h3>${nbAnnonces}</h3><p>Annonces</p></div><div class="icon"><i class="fas fa-building"></i></div></div></div>
+      <div class="col-lg-3 col-6"><div class="small-box bg-success"><div class="inner"><h3>${nbProprietaires}</h3><p>Propriétaires</p></div><div class="icon"><i class="fas fa-user"></i></div></div></div>
+      <div class="col-lg-2 col-6"><div class="small-box bg-warning"><div class="inner"><h3>${nbWhatsApp}</h3><p>WhatsApp</p></div><div class="icon"><i class="fab fa-whatsapp"></i></div></div></div>
+      <div class="col-lg-2 col-6"><div class="small-box bg-danger"><div class="inner"><h3>${nbAppels}</h3><p>Appels</p></div><div class="icon"><i class="fas fa-phone"></i></div></div></div>
+      <div class="col-lg-2 col-6"><div class="small-box bg-pink"><div class="inner"><h3>${nbLikes}</h3><p>J’aime</p></div><div class="icon"><i class="fas fa-heart"></i></div></div></div>`;
+  }
+
+  function renderOwners(){
+    const uniqueOwners = [];
+    const ownersDiv = document.getElementById("ownersList");
+    ownersDiv.innerHTML = "";
+
+    annonces.forEach(a => {
+      if (!uniqueOwners.find(o => o.nom === a.nomProprietaire)) {
+        uniqueOwners.push({ nom: a.nomProprietaire, img: a.imgProprietaire });
+      }
+    });
+
+    uniqueOwners.forEach(o => {
+      ownersDiv.innerHTML += `
+        <div class="col-md-3 mb-3 owner-card text-center">
+          <img src="${o.img}" alt="photo de ${o.nom}">
+          <p class="mt-2">${o.nom}</p>
+        </div>`;
+    });
+  }
+
+function renderInteractions(page = 1){
+  const filter = document.getElementById("filterType").value;
+  const dateFilter = document.getElementById("filterDate").value;
+  const tbody = document.querySelector("#tableInteractions tbody");
+  tbody.innerHTML = "";
+
+  let filtered = interactions;
+
+  if (filter !== "all") {
+    filtered = filtered.filter(i => i.type === filter);
+  }
+
+  if (dateFilter) {
+    filtered = filtered.filter(i => {
+      const interactionDate = new Date(i.date).toISOString().split('T')[0];
+      return interactionDate === dateFilter;
+    });
+  }
+
+  const perPage = 10;
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const start = (page - 1) * perPage;
+  const end = start + perPage;
+  const paginated = filtered.slice(start, end);
+
+  paginated.forEach(i => {
+    const annonce = annonces.find(a => a.titre === i.annonce);
+    tbody.innerHTML += `
+      <tr>
+        <td>${i.id}</td>
+        <td>${i.annonce}</td>
+        <td>${i.type}</td>
+        <td>${annonce ? annonce.nomProprietaire : "?"}</td>
+        <td>${i.date}</td>
+      </tr>`;
+  });
+
+  renderChart(filtered);
+  renderPaginationControls(page, totalPages);
+}
+
+  function renderChart(filteredData = interactions){
+    const ctx = document.getElementById('chartInteractions').getContext('2d');
+    const counts = {
+      whatsapp: filteredData.filter(i => i.type === "whatsapp").length,
+      appel: filteredData.filter(i => i.type === "appel").length,
+      like: filteredData.filter(i => i.type === "like").length
+    };
+
+    if (chartInstance) chartInstance.destroy();
+
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['WhatsApp', 'Appels', 'J’aime'],
+        datasets: [{
+          label: 'Nombre d’interactions',
+          data: [counts.whatsapp, counts.appel, counts.like],
+          backgroundColor: ['#28a745', '#007bff', '#dc3545']
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  function resetData(){
+    if(confirm("❗️ Cette action supprimera toutes les annonces et interactions. Continuer ?")){
+      localStorage.removeItem("annonces");
+      localStorage.removeItem("interactions");
+      annonces = [];
+      interactions = [];
+      renderDashboard();
+    }
+  }
+
+  function exportCSV(){
+    const filter = document.getElementById("filterType").value;
+    const dateFilter = document.getElementById("filterDate").value;
+    let filtered = interactions;
+
+    if (filter !== "all") {
+      filtered = filtered.filter(i => i.type === filter);
+    }
+    if (dateFilter) {
+      filtered = filtered.filter(i => {
+        const interactionDate = new Date(i.date).toISOString().split('T')[0];
+        return interactionDate === dateFilter;
+      });
+    }
+
+    const rows = [
+      ["ID", "Annonce", "Type", "Propriétaire", "Date"]
+    ];
+
+    filtered.forEach(i => {
+      const annonce = annonces.find(a => a.titre === i.annonce);
+      rows.push([
+        i.id,
+        i.annonce,
+        i.type,
+        annonce ? annonce.nomProprietaire : "",
+        i.date
+      ]);
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "interactions.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function renderDashboard(){
+    renderStats();
+    renderOwners();
+    renderInteractions();
+  }
+
+  renderDashboard();
+
+  function renderPaginationControls(currentPage, totalPages){
+  const container = document.getElementById("paginationControls");
+  container.innerHTML = "";
+
+  if (totalPages <= 1) return;
+
+  let html = `<nav><ul class="pagination">`;
+
+  for (let i = 1; i <= totalPages; i++) {
+    html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+      <a class="page-link" href="#" onclick="renderInteractions(${i})">${i}</a>
+    </li>`;
+  }
+
+  html += `</ul></nav>`;
+  container.innerHTML = html;
+}
+
+</script>
+</body>
+</html>
