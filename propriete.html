@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Annonces Immobilières</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" />
+  <style>
+    body {
+      background: #f8f9fa;
+    }
+    .property-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      background: #fff;
+      position: relative;
+      cursor: pointer;
+      transition: box-shadow 0.3s ease;
+    }
+    .property-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .property-image {
+      position: relative;
+      overflow: hidden;
+    }
+    .property-image img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+    .property-card:hover .property-image img {
+      transform: scale(1.05);
+    }
+    .icons {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column; /* 👈 Ajouté pour l'affichage vertical */
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  align-items: flex-end; /* pour les aligner à droite */
+}
+
+    .property-image:hover .icons {
+      opacity: 1;
+    }
+    .icons a,
+    .icons span {
+      background: #fff;
+      padding: 6px;
+      border-radius: 50%;
+      font-size: 18px;
+      display: flex;
+       width: 36px;
+      height: 36px;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      user-select: none;
+      transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+    }
+    .icons a:hover,
+    .icons span:hover {
+      background: #0d6efd;
+      color: #fff;
+      border-color: #0d6efd;
+    }
+    .icons i {
+      font-size: 1.3rem;
+      color: #0d6efd;
+      pointer-events: none;
+    }
+    .icons a:hover i,
+    .icons span:hover i {
+      color: #fff;
+    }
+    .retired-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 0, 0, 0.2);
+      color: #b30000;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      text-align: center;
+      pointer-events: none;
+      z-index: 5;
+    }
+    /* Form improvements */
+    form input.form-control {
+      box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.1);
+      transition: box-shadow 0.3s ease;
+    }
+    form input.form-control:focus {
+      box-shadow: 0 0 5px #0d6efd;
+      border-color: #0d6efd;
+      outline: none;
+    }
+    #addForm .btn {
+      min-width: 110px;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    #addForm .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    /* Smaller margin between buttons */
+    #addForm .d-flex.gap-2 > * {
+      margin-bottom: 0.3rem;
+    }
+    /* Agent info */
+    .agent img {
+      border: 2px solid #0d6efd;
+    }
+    /* Modal image carousel */
+    .carousel-item img {
+      max-height: 400px;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <h2 class="text-center mb-4">Annonces Immobilières</h2>
+
+     <!-- Filtres -->
+    <div class="row mb-4">
+      <div class="col-md-4 mb-2"><input type="text" id="filterCity" class="form-control" placeholder="Filtrer par ville..." /></div>
+      <div class="col-md-4 mb-2"><input type="number" id="filterPrice" class="form-control" placeholder="Prix max ($)" min="0" /></div>
+      <div class="col-md-4 mb-2">
+        <select id="filterBeds" class="form-select">
+          <option value="">Chambres</option><option value="1">1+</option><option value="2">2+</option>
+          <option value="3">3+</option><option value="4">4+</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Formulaire -->
+    <form id="addForm" class="row g-3 mb-5" autocomplete="off">
+      <input type="hidden" id="editingIndex" />
+      <div class="col-md-6">
+        <input type="text" id="title" class="form-control" placeholder="Titre" required />
+      </div>
+      <div class="col-md-6">
+        <input type="text" id="address" class="form-control" placeholder="Adresse complète" required />
+      </div>
+      <div class="col-md-4">
+        <input type="number" id="price" class="form-control" placeholder="Prix ($)" min="0" required />
+      </div>
+      <div class="col-md-4">
+        <input type="number" id="beds" class="form-control" placeholder="Chambres" min="0" required />
+      </div>
+      <div class="col-md-4">
+        <input type="number" id="baths" class="form-control" placeholder="Salles de bain" min="0" required />
+      </div>
+      <div class="col-md-4">
+        <input type="text" id="kitchen" class="form-control" placeholder="Cuisine" required />
+      </div>
+      <div class="col-md-4">
+        <input type="text" id="city" class="form-control" placeholder="Ville" required />
+      </div>
+      <div class="col-md-4">
+        <input type="file" id="imageFiles" class="form-control" accept="image/*" multiple required />
+      </div>
+      <div class="col-md-4">
+        <input type="file" id="agentPhotoFile" class="form-control" accept="image/*" required />
+      </div>
+      <div class="col-md-6">
+        <input type="text" id="agentName" class="form-control" placeholder="Nom de l’agent" required />
+      </div>
+      <div class="col-md-6">
+        <input type="tel" id="agentPhone" class="form-control" placeholder="Téléphone (WhatsApp)" required />
+      </div>
+      <div class="col-md-4">
+         <input type="datetime-local" id="dateTime" class="form-control" required />
+      </div>
+
+      <div class="col-12 d-flex flex-wrap justify-content-end gap-2">
+        <button type="submit" id="btnAdd" class="btn btn-primary">Ajouter</button>
+        <button type="button" id="btnModify" class="btn btn-warning" disabled>Modifier</button>
+        <button type="button" id="btnDelete" class="btn btn-danger" disabled>Supprimer</button>
+        <button type="button" id="btnCancel" class="btn btn-secondary" disabled>Annuler</button>
+        <button type="button" id="btnRetire" class="btn btn-outline-danger" disabled>Retirer</button>
+      </div>
+    </form>
+
+    <!-- Liste des annonces -->
+    <div class="row" id="propertyList"></div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Détails du bien</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const properties = [];
+    const form = document.getElementById("addForm");
+    const editingIndexInput = document.getElementById("editingIndex");
+    const btnAdd = document.getElementById("btnAdd");
+    const btnModify = document.getElementById("btnModify");
+    const btnDelete = document.getElementById("btnDelete");
+    const btnCancel = document.getElementById("btnCancel");
+    const btnRetire = document.getElementById("btnRetire");
+    const list = document.getElementById("propertyList");
+
+const filterCity = document.getElementById("filterCity");
+const filterPrice = document.getElementById("filterPrice");
+const filterBeds = document.getElementById("filterBeds");
+
+filterCity.addEventListener("input", applyFilters);
+filterPrice.addEventListener("input", applyFilters);
+filterBeds.addEventListener("change", applyFilters);
+function applyFilters() {
+  const cityValue = filterCity.value.trim().toLowerCase();
+  const priceValue = parseFloat(filterPrice.value);
+  const bedsValue = parseInt(filterBeds.value);
+
+  // filtrer les propriétés
+  const filtered = properties.filter(prop => {
+    // Filtrer par ville (si rempli)
+    const cityMatch = cityValue === "" || prop.city.toLowerCase().includes(cityValue);
+
+    // Filtrer par prix max (si rempli)
+    const priceMatch = isNaN(priceValue) || prop.price <= priceValue;
+
+    // Filtrer par nombre de chambres (si rempli)
+    const bedsMatch = isNaN(bedsValue) || prop.beds >= bedsValue;
+
+    return cityMatch && priceMatch && bedsMatch;
+  });
+
+  renderProperties(filtered);
+}
+
+
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      editingIndexInput.value === "" ? addProperty() : modifyProperty();
+    });
+    btnModify.onclick = modifyProperty;
+    btnDelete.onclick = deleteProperty;
+    btnCancel.onclick = resetForm;
+    btnRetire.onclick = retireProperty;
+
+    function readFiles(files) {
+      return Promise.all(
+        [...files].map(
+          (f) =>
+            new Promise((res) => {
+              const r = new FileReader();
+              r.onload = (e) => res(e.target.result);
+              r.readAsDataURL(f);
+            })
+        )
+      );
+    }
+
+    async function addProperty() {
+      const imageFiles = form.imageFiles.files;
+      const agentFile = form.agentPhotoFile.files[0];
+      if (!imageFiles.length || !agentFile)
+        return alert("Veuillez joindre les images.");
+
+      const [images, agentArr] = await Promise.all([
+        readFiles(imageFiles),
+        readFiles([agentFile]),
+      ]);
+      const prop = getFormData();
+      prop.images = images;
+      prop.agentPhoto = agentArr[0];
+      prop.likes = 0;
+      prop.retired = false;
+      properties.push(prop);
+      resetForm();
+      renderProperties();
+    }
+
+    async function modifyProperty() {
+      const idx = parseInt(editingIndexInput.value);
+      if (isNaN(idx) || !properties[idx]) return;
+      const imageFiles = form.imageFiles.files;
+      const agentFile = form.agentPhotoFile.files[0];
+      const newData = getFormData();
+
+      if (imageFiles.length) newData.images = await readFiles(imageFiles);
+      else newData.images = properties[idx].images;
+
+      if (agentFile) newData.agentPhoto = (await readFiles([agentFile]))[0];
+      else newData.agentPhoto = properties[idx].agentPhoto;
+
+      properties[idx] = { ...properties[idx], ...newData };
+      resetForm();
+      renderProperties();
+    }
+
+    function deleteProperty() {
+      const idx = parseInt(editingIndexInput.value);
+      if (
+        !isNaN(idx) &&
+        properties[idx] &&
+        confirm("Supprimer cette annonce ?")
+      ) {
+        properties.splice(idx, 1);
+        resetForm();
+        renderProperties();
+      }
+    }
+
+    function retireProperty() {
+      const idx = parseInt(editingIndexInput.value);
+      if (
+        !isNaN(idx) &&
+        properties[idx] &&
+        confirm("Marquer comme retirée ?")
+      ) {
+        properties[idx].retired = true;
+        resetForm();
+        renderProperties();
+      }
+    }
+
+    function resetForm() {
+      form.reset();
+      editingIndexInput.value = "";
+      btnAdd.disabled = false;
+      btnModify.disabled = btnDelete.disabled = btnCancel.disabled = btnRetire.disabled = true;
+    }
+
+    function getFormData() {
+      return {
+        title: form.title.value.trim(),
+        address: form.address.value.trim(),
+        price: parseInt(form.price.value) || 0,
+        beds: parseInt(form.beds.value) || 0,
+        baths: parseInt(form.baths.value) || 0,
+        kitchen: form.kitchen.value.trim(),
+        city: form.city.value.trim(),
+        agentName: form.agentName.value.trim(),
+        agentPhone: form.agentPhone.value.trim(),
+        dateTime: form.dateTime.value.trim(),
+      };
+    }
+
+    function openModal(index) {
+      const p = properties[index];
+      const modalBody = document.getElementById("modalBody");
+      const indicators = p.images
+        .map(
+          (_, i) => `
+          <button type="button" data-bs-target="#carouselDetails" data-bs-slide-to="${i}" class="${
+            i === 0 ? "active" : ""
+          }" aria-label="Slide ${i + 1}"></button>`
+        )
+        .join("");
+      const items = p.images
+        .map(
+          (src, i) => `
+          <div class="carousel-item ${i === 0 ? "active" : ""}">
+            <img src="${src}" class="d-block w-100" alt="Image ${i + 1}" />
+          </div>`
+        )
+        .join("");
+      const carousel = `
+        <div id="carouselDetails" class="carousel slide mb-3" data-bs-ride="carousel">
+          <div class="carousel-indicators">${indicators}</div>
+          <div class="carousel-inner">${items}</div>
+          <button class="carousel-control-prev" type="button" data-bs-target="#carouselDetails" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon"></span>
+          </button>
+          <button class="carousel-control-next" type="button" data-bs-target="#carouselDetails" data-bs-slide="next">
+            <span class="carousel-control-next-icon"></span>
+          </button>
+        </div>`;
+      modalBody.innerHTML = `
+        <h4>${p.title}</h4>
+        ${carousel}
+        <p><strong>Adresse :</strong> ${p.address}</p>
+        <p><strong>Prix :</strong> $${p.price.toLocaleString()}</p>
+        <p><strong>Chambres :</strong> ${p.beds}</p>
+        <p><strong>Salles de bain :</strong> ${p.baths}</p>
+        <p><strong>Cuisine :</strong> ${p.kitchen}</p>
+        <p><strong>Ville :</strong> ${p.city}</p>
+        <p><strong>Date :</strong> ${p.dateTime}</p>
+        <hr/>
+        <div class="d-flex align-items-center">
+          <img src="${p.agentPhoto}" alt="Agent" width="60" height="60" style="border-radius:50%; object-fit:cover; border:2px solid #0d6efd;"/>
+          <div class="ms-3">
+            <h6>${p.agentName}</h6>
+            <a href="tel:${p.agentPhone}">${p.agentPhone}</a><br/>
+            <a href="https://wa.me/${p.agentPhone.replace(/\D/g,'')}?text=Je%20suis%20int%C3%A9ress%C3%A9%20par%20cette%20vente" target="_blank" class="btn btn-success btn-sm mt-1">
+              <i class="bi bi-whatsapp"></i> WhatsApp
+            </a>
+          </div>
+        </div>`;
+      const modal = new bootstrap.Modal(document.getElementById("detailsModal"));
+      modal.show();
+    }
+
+    function renderProperties() {
+      list.innerHTML = "";
+      properties.forEach((p, i) => {
+        const col = document.createElement("div");
+        col.className = "col-md-4 mb-4";
+        col.innerHTML = `
+          <div class="property-card" onclick="selectProperty(${i})" tabindex="0" role="button" aria-pressed="false" aria-label="Voir détails de ${p.title}">
+            <div class="property-image">
+              <img src="${p.images[0]}" alt="Propriété - ${p.title}" />
+              ${p.retired ? '<div class="retired-overlay">Retirée (achetée)</div>' : ''}
+              <div class="icons">
+                <a href="https://wa.me/${p.agentPhone.replace(/\D/g,'')}?text=Je%20suis%20int%C3%A9ress%C3%A9%20par%20cette%20vente" target="_blank" title="WhatsApp">
+                  <i class="bi bi-whatsapp"></i>
+                </a>
+                <a href="tel:${p.agentPhone}" title="Appeler">
+                  <i class="bi bi-telephone"></i>
+                </a>
+                <span class="like" title="J'aime">
+                  <i class="bi bi-heart-fill"></i> ${p.likes || 0}
+                </span>
+              </div>
+            </div>
+            <div class="p-3">
+              <p class="fw-bold text-success">$${p.price.toLocaleString()}</p>
+              <h5>${p.title}</h5>
+              <p> <i  class="bi bi-geo-alt"></i> ${p.address}</p>
+              <p>🛏 ${p.beds} • 🛁 ${p.baths} • 🍽 ${p.kitchen} </p>
+               <p>${p.dateTime}</p>
+              <div class="agent d-flex align-items-center mt-2">
+                <img src="${p.agentPhoto}" width="40" height="40" alt="Agent ${p.agentName}" style="border-radius:50%; object-fit:cover; border:2px solid #0d6efd;">
+                <div class="ms-2 flex-grow-1">
+                  <strong>${p.agentName}</strong><br/>
+                  <small>${p.agentPhone} 
+                  </small> 
+                </div>
+              </div><br>
+                 <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); openModal(${i})" aria-label="Voir plus sur ${p.title}"  style="width: 180px; background-color: #198754; color:white;">Voir plus</button>
+            </div>
+          </div>`;
+        list.appendChild(col);
+      });
+
+        // Attach event listeners on dynamic elements:
+    document.querySelectorAll(".property-card .like").forEach(el => {
+      el.onclick = (e) => {
+        const idx = parseInt(e.target.closest(".property-card").getAttribute("data-index"));
+        like(idx);
+      };
+    });
+
+    document.querySelectorAll(".property-card").forEach(card => {
+      card.onclick = () => {
+        const idx = parseInt(card.getAttribute("data-index"));
+        loadPropertyToForm(idx);
+      };
+    });
+    }
+  function like(index) {
+    if(!properties[index].retired) {
+      properties[index].likes = (properties[index].likes || 0) + 1;
+      renderProperties();
+    }
+  }
+
+
+    function selectProperty(i) {
+      const p = properties[i];
+      editingIndexInput.value = i;
+      form.title.value = p.title;
+      form.address.value = p.address;
+      form.price.value = p.price;
+      form.beds.value = p.beds;
+      form.baths.value = p.baths;
+      form.kitchen.value = p.kitchen;
+      form.city.value = p.city;
+      form.agentName.value = p.agentName;
+      form.agentPhone.value = p.agentPhone;
+      form.dateTime.value = p.dateTime;
+      btnAdd.disabled = true;
+      btnModify.disabled = false;
+      btnDelete.disabled = false;
+      btnCancel.disabled = false;
+      btnRetire.disabled = p.retired;
+      // Reset file inputs (can't set files programmatically for security reasons)
+      form.imageFiles.value = "";
+      form.agentPhotoFile.value = "";
+      // Scroll to form
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // Initial call
+    renderProperties();
+  </script>
+</body>
+</html>
